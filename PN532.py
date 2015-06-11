@@ -37,38 +37,23 @@ MOSI = 27  # GPIO 27, Pin# 13
 MISO = 22  # GPIO 22, Pin# 15
 SCLK = 04  # GPIO 04, Pin# 07
 
-# Configuration for a BeagleBone Black:
-# CS   = 'P8_7'
-# MOSI = 'P8_8'
-# MISO = 'P8_9'
-# SCLK = 'P8_10'
-
-        
 
 def read_block(block):
-    # Authenticate block 4 for reading with default key (0xFFFFFFFFFFFF).
+    # Authenticate block for reading with default key (0xFFFFFFFFFFFF).
     if not pn532.mifare_classic_authenticate_block(uid, block, PN532.MIFARE_CMD_AUTH_B, 
                                                    [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]):
         print 'Failed to authenticate block %d!' % block
         return None
-    # Read block 4 data.
-    #data = pn532.mifare_classic_read_block(4)
+
+    # Read block data.
     data = pn532.mifare_classic_read_block(block)
     if data is None:
         print 'Failed to read block %d!' % block
         return None
-    # Note that 16 bytes are returned, so only show the first 4 bytes for the block.
+
+    # 16 bytes data are returned
     print 'Read block %d: 0x%s' % (block, format(binascii.hexlify(data[:])))
     return data
-    # Example of writing data to block 4.  This is commented by default to
-    # prevent accidentally writing a card.
-    # Set first 4 bytes of block to 0xFEEDBEEF.
-    # data[0:4] = [0xFE, 0xED, 0xBE, 0xEF]
-    # # Write entire 16 byte block.
-    # pn532.mifare_classic_write_block(4, data)
-    # print 'Wrote to block 4, exiting program!'
-    # # Exit the program to prevent continually writing to card.
-    # sys.exit(0)
     
 def read_all_blocks():
     print 'read_all_blocks'
@@ -139,7 +124,11 @@ def parseNDEF(sec):
     message_data = message_data.decode('hex')
     message = ndef.NdefMessage(message_data)
     record = message.records[0]
-    print 'payload: %s' % (record.payload)
+
+    payload = "%s" % (record.payload)
+    payloadNoISOCode = payload[3:]
+    #print 'payload: %s' % payloadNoISOCode
+    return payloadNoISOCode
 
 # Create an instance of the PN532 class.
 pn532 = PN532.PN532(cs=CS, sclk=SCLK, mosi=MOSI, miso=MISO)
@@ -168,21 +157,20 @@ while True:
     uid = pn532.read_passive_target()
     # Try again if no card is available.
     if uid is None:
-	if isCardDetected is 1:
-	    isCardDetected = 0
-	    print 'card left'
-        continue
+        if isCardDetected is 1:
+            isCardDetected = 0
+            print 'card left'
     else:
         if isCardDetected is 0:
-	    isCardDetected = 1
-   	    print 'card detected!'
+            isCardDetected = 1
+            print 'card detected! UID: 0x{0}'.format(binascii.hexlify(uid))
 
-  	    payload = {"id":"0x%s" % (binascii.hexlify(uid))}
-	    c.publish('humix.sense.detect.event', json.dumps(payload))
+            payload = {"id":"0x%s" % (binascii.hexlify(uid))}
+            c.publish('humix.sense.detect.event', json.dumps(payload))
 
-        #read_all_blocks()
-        #parseNDEF(1)
-	continue
-
-    print 'Found card with UID: 0x{0}'.format(binascii.hexlify(uid))
-    
+            payload = parseNDEF(1)
+            if payload is None:
+                continue
+            msg = {"text":"%s" % payload}
+            print 'publishing speech.command with msg: %s...' % msg
+            c.publish('humix.sense.speech.command', json.dumps(msg))
