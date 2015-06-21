@@ -1,0 +1,10 @@
+README.rst
+setup.cfg
+setup.py
+ndef/__init__.py
+ndef/ndef.py
+ndef.egg-info/PKG-INFO
+ndef.egg-info/SOURCES.txt
+ndef.egg-info/dependency_links.txt
+ndef.egg-info/top_level.txt
+ndef.egg-info/zip-safe
